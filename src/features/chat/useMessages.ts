@@ -108,6 +108,7 @@ function toChatMessage(
     id: message.id,
     isOwn: message.senderUid === userUid,
     nickname: message.senderNickname,
+    senderUid: message.senderUid,
     status: message.hasPendingWrites ? "pending" : "sent",
     text: message.text,
     timestampLabel: message.hasPendingWrites
@@ -270,6 +271,7 @@ export function useMessages({
         retry: () => {
           void retryFailedMessage(failedMessage);
         },
+        senderUid: userUid,
         status: "failed",
         text: failedMessage.text,
         timestampLabel: "Failed",

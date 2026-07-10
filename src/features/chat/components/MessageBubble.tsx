@@ -1,9 +1,10 @@
 import { motion } from "motion/react";
-import { memo } from "react";
+import { memo, useMemo } from "react";
 
 import type { ChatMessage } from "@/features/chat/types";
 import { Button } from "@/shared/ui/Button";
 import { cn } from "@/shared/lib/cn";
+import { getUserHue } from "@/shared/lib/userColor";
 
 type MessageBubbleProps = {
   message: ChatMessage;
@@ -15,6 +16,7 @@ function getInitial(nickname: string) {
 
 function MessageBubbleComponent({ message }: MessageBubbleProps) {
   const isOwn = message.isOwn;
+  const hue = useMemo(() => getUserHue(message.senderUid), [message.senderUid]);
 
   return (
     <motion.article
@@ -26,7 +28,13 @@ function MessageBubbleComponent({ message }: MessageBubbleProps) {
       transition={{ duration: 0.18, ease: "easeOut" }}
     >
       {!isOwn ? (
-        <div className="grid size-8 shrink-0 place-items-center rounded-2xl bg-white/70 text-xs font-semibold text-slate-700 dark:bg-white/10 dark:text-slate-200">
+        <div
+          className="grid size-8 shrink-0 place-items-center rounded-2xl text-xs font-semibold"
+          style={{
+            backgroundColor: `hsl(${hue.toString()}, 55%, 32%)`,
+            color: `hsl(${hue.toString()}, 25%, 92%)`,
+          }}
+        >
           {getInitial(message.nickname)}
         </div>
       ) : null}
@@ -40,7 +48,10 @@ function MessageBubbleComponent({ message }: MessageBubbleProps) {
         )}
       >
         {!isOwn ? (
-          <p className="mb-1 text-xs font-medium text-cyan-700 dark:text-cyan-200">
+          <p
+            className="mb-1 text-xs font-medium"
+            style={{ color: `hsl(${hue.toString()}, 60%, 38%)` }}
+          >
             {message.nickname}
           </p>
         ) : null}
@@ -84,6 +95,7 @@ export const MessageBubble = memo(
       previousMessage.id === nextMessage.id &&
       previousMessage.isOwn === nextMessage.isOwn &&
       previousMessage.nickname === nextMessage.nickname &&
+      previousMessage.senderUid === nextMessage.senderUid &&
       Boolean(previousMessage.retry) === Boolean(nextMessage.retry) &&
       previousMessage.status === nextMessage.status &&
       previousMessage.text === nextMessage.text &&

@@ -9,6 +9,7 @@ export type ChatMessage = {
   isOwn: boolean;
   nickname: string;
   retry?: (() => void) | undefined;
+  senderUid: string;
   status: ChatMessageStatus;
   text: string;
   timestampLabel: string;

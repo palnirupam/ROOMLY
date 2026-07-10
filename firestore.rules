@@ -1,0 +1,84 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isValidRoomCode(roomCode) {
+      return roomCode.matches('^[a-zA-Z0-9_-]{1,50}$');
+    }
+
+    function isValidNickname(nickname) {
+      return nickname is string &&
+        nickname.size() >= 2 &&
+        nickname.size() <= 20;
+    }
+
+    function isValidMessageText(text) {
+      return text is string &&
+        text.size() > 0 &&
+        text.size() <= 500;
+    }
+
+    function isValidClientMessageId(clientMessageId) {
+      return clientMessageId is string &&
+        clientMessageId.size() > 0 &&
+        clientMessageId.size() <= 80;
+    }
+
+    match /rooms/{roomCode} {
+      allow get: if isSignedIn() && isValidRoomCode(roomCode);
+      allow list: if false;
+
+      allow create: if isSignedIn() &&
+        isValidRoomCode(roomCode) &&
+        request.resource.data.keys().hasOnly([
+          'roomCode',
+          'createdAt',
+          'createdByUid',
+          'schemaVersion'
+        ]) &&
+        request.resource.data.roomCode == roomCode &&
+        request.resource.data.createdAt == request.time &&
+        request.resource.data.createdByUid == request.auth.uid &&
+        request.resource.data.schemaVersion == 1;
+
+      allow delete: if isSignedIn() &&
+        isValidRoomCode(roomCode) &&
+        resource.data.createdByUid == request.auth.uid;
+
+      match /messages/{messageId} {
+        allow get: if isSignedIn() && isValidRoomCode(roomCode);
+        allow list: if isSignedIn() &&
+          isValidRoomCode(roomCode) &&
+          request.query.limit <= 100;
+
+        allow create: if isSignedIn() &&
+          isValidRoomCode(roomCode) &&
+          exists(/databases/$(database)/documents/rooms/$(roomCode)) &&
+          request.resource.data.keys().hasOnly([
+            'clientMessageId',
+            'createdAt',
+            'senderNickname',
+            'senderUid',
+            'text'
+          ]) &&
+          request.resource.data.createdAt == request.time &&
+          request.resource.data.senderUid == request.auth.uid &&
+          isValidNickname(request.resource.data.senderNickname) &&
+          isValidMessageText(request.resource.data.text) &&
+          isValidClientMessageId(request.resource.data.clientMessageId);
+
+        allow delete: if isSignedIn() &&
+          isValidRoomCode(roomCode) &&
+          get(/databases/$(database)/documents/rooms/$(roomCode)).data.createdByUid == request.auth.uid;
+      }
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

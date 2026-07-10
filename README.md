@@ -2,7 +2,7 @@
 
 # 🏠 Roomly
 
-**Anonymous room-based chat. No sign-up. Just pick a room code.**
+**Anonymous room-based chat. No sign-up. Just share a link.**
 
 ![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=white)
 ![TypeScript](https://img.shields.io/badge/TypeScript-6-3178C6?logo=typescript&logoColor=white)
@@ -10,7 +10,7 @@
 ![Firebase](https://img.shields.io/badge/Firebase-FFCA28?logo=firebase&logoColor=black)
 ![Tailwind](https://img.shields.io/badge/Tailwind-4-06B6D4?logo=tailwindcss&logoColor=white)
 
-<kbd> <br> **Try it: [roomly.app](https://roomly-ddb2a.web.app)** <br> </kbd>
+<kbd> <br> **Try it: [roomly-two.vercel.app](https://roomly-two.vercel.app)** <br> </kbd>
 
 [![GitHub](https://img.shields.io/badge/GitHub-palnirupam/ROOMLY-181717?logo=github&logoColor=white)](https://github.com/palnirupam/ROOMLY)
 
@@ -24,9 +24,15 @@
 
 |                       |                                                         |
 | --------------------- | ------------------------------------------------------- |
-| 🔑 **Anonymous Auth** | Instant access — no email, no password, no account      |
-| 🪪 **Room Codes**     | Pick any code (1–50 chars), share it, join. That's it.  |
+| 🔑 **Google Auth** | Instant access — one click with your Google account      |
+| 🚀 **Create Room**    | One-click random room code generation — no manual entry |
+| 🔗 **Invite Link**    | Share the link, friends join instantly                   |
+| 🪪 **Room Codes**     | Or pick any custom code (1–50 chars)                    |
 | ⚡ **Real-time Chat** | Messages appear instantly via Firestore live sync       |
+| 🎨 **Nickname Colors**| Each user gets a unique color — easy to follow chat     |
+| 👥 **Member Presence**| Live member count + "joined/left" toast notifications    |
+| ⌨️ **Enter-to-Send**  | Enter sends, Shift+Enter for newline                    |
+| 😊 **Emoji Picker**   | Quick emoji selection in messages                       |
 | 🌙 **Dark Mode**      | Toggle theme — light ↔ dark                             |
 | 📜 **Smooth Scroll**  | Fluid auto-scroll, RAF-throttled, invisible scrollbars  |
 | 🗑️ **Room Deletion**  | Creator can nuke all messages & the room in one click   |
@@ -57,7 +63,7 @@ graph LR
 | ⚡ **Build**                                                                                                                | Vite 8                    | HMR dev server & bundling      |
 | 🎨 **Styling**                                                                                                              | Tailwind CSS 4            | Utility-first CSS              |
 | 🎬 **Animation**                                                                                                            | Motion (Framer Motion)    | Enter/exit & layout animations |
-| 🔥 **Backend**                                                                                                              | Firebase Firestore + Auth | Real-time DB & anonymous auth  |
+| 🔥 **Backend**                                                                                                              | Firebase Firestore + Auth | Real-time DB & Google auth     |
 | 🧹 **Linting**                                                                                                              | ESLint 10                 | Zero-warnings enforcement      |
 | ✨ **Formatting**                                                                                                           | Prettier                  | Consistent code style          |
 | 🪝 **Git Hooks**                                                                                                            | Husky + lint-staged       | Pre-commit checks              |
@@ -71,14 +77,14 @@ graph LR
 - **Node.js** 22+
 - **npm**
 - A **Firebase project** with:
-  - Firestore Database (production mode)
-  - Anonymous Authentication enabled
+  - Firestore Database
+  - Google Authentication enabled
 
 ### 1. Clone
 
 ```bash
-git clone https://github.com/<your-org>/roomly.git
-cd roomly
+git clone https://github.com/palnirupam/ROOMLY.git
+cd ROOMLY
 ```
 
 ### 2. Install
@@ -138,36 +144,40 @@ src/
 │   │
 │   ├── chat/
 │   │   ├── components/
-│   │   │   ├── ChatHeader.tsx    # Room info, delete, theme
+│   │   │   ├── ChatHeader.tsx    # Room info, member count, delete, theme
 │   │   │   ├── EmptyChat.tsx     # "No messages yet"
 │   │   │   ├── LoadingSkeleton.tsx
-│   │   │   ├── MessageBubble.tsx # Single message card
-│   │   │   ├── MessageComposer.tsx # Input + send
-│   │   │   └── MessageList.tsx   # Scroll container
+│   │   │   ├── MessageBubble.tsx # Single message card with colored nickname
+│   │   │   ├── MessageComposer.tsx # Input + send, Enter-to-send
+│   │   │   └── MessageList.tsx   # Scroll container with date separators
 │   │   ├── messageService.ts     # Firestore CRUD
 │   │   ├── types.ts
 │   │   └── useMessages.ts        # Messages hook
 │   │
 │   └── rooms/
-│       ├── components/JoinRoomForm.tsx
-│       ├── roomService.ts        # Join/create/delete room
+│       ├── components/JoinRoomForm.tsx  # Create or join room
+│       ├── memberService.ts             # Member presence (join/leave/subscribe)
+│       ├── roomService.ts               # Join/create/delete room + random code gen
 │       ├── roomErrors.ts
-│       └── validation.ts         # Nickname & room code rules
+│       └── validation.ts                # Nickname & room code rules
 │
 ├── firebase/
-│   ├── auth.ts                   # signInAnonymously()
+│   ├── auth.ts                   # Google sign-in
 │   ├── config.ts                 # Firebase init
 │   └── firestore.ts
 │
 ├── pages/
-│   ├── ChatPage.tsx
-│   ├── JoinPage.tsx
+│   ├── ChatPage.tsx              # Chat room with member tracking
+│   ├── JoinPage.tsx              # Join/create room page (redirect support)
 │   └── NotFoundPage.tsx
 │
 ├── shared/
 │   ├── config/env.ts             # VITE_* env bindings
 │   ├── lib/cn.ts                 # clsx + tailwind-merge
-│   └── ui/                       # Button, Card, Container, Input, Skeleton
+│   ├── lib/userColor.ts          # Per-user color derivation
+│   └── ui/                       # Button, Card, ConfirmModal, Container, 
+│                                  # EmojiPicker, Header, Input, MemberToast, 
+│                                  # PageTransition, Skeleton
 │
 └── styles/global.css             # Tailwind imports + utilities
 ```
@@ -181,39 +191,71 @@ src/
 ```
 App mount
   ↓
-AuthProvider → signInAnonymously()
+AuthProvider → signInWithPopup(GoogleAuthProvider)
   ↓
-onAuthStateChanged → user.uid available
+onAuthStateChanged → user.uid, user.displayName available
   ↓
 AuthGate → renders children (or loading/error)
 ```
 
-Firebase Anonymous Auth with `browserLocalPersistence` keeps the session alive across page refreshes.
+Google sign-in with `browserLocalPersistence` keeps the session alive across page refreshes.
+
+### Join & Create Room
+
+```
+Join Page
+  ├── [Create New Room] → auto-generates 6-char code (e.g. a8F3mK)
+  │     ↓
+  │   createNewRoom() → joinOrCreateRoom(roomCode) → navigate to /room/...
+  │
+  └── Enter room code manually → [Join Room]
+        ↓
+      joinOrCreateRoom(roomCode) → navigates to /room/...
+
+Direct link (/room/a8F3mK):
+  └── sessionStorage has nickname? → Enter room
+      No? → Redirect to /join?code=a8F3mK (code pre-filled)
+```
+
+### Member Lifecycle
+
+```
+ChatPage loads
+  ↓
+joinRoom(roomCode, uid, nickname) → creates Firestore doc
+  ↓
+subscribeToMembers() ← onSnapshot
+  ↓
+Detect new/removed members
+  ├── New member → toast: "Rupam joined"
+  └── Member left → toast: "Rupam left"
+  ↓
+Cleanup on unmount or tab close:
+  leaveRoom(roomCode, uid) → deletes member doc
+```
 
 ### Room Lifecycle
 
 ```
-User enters a room code
+User creates or joins a room
   ↓
-joinOrCreateRoom() [Firestore transaction]
-  ├── Room exists? → Join
-  └── No? → Create (user = creator)
-        ↓
+success → navigate to /room/{roomCode}
+  ↓
 subscribeToMessages() [onSnapshot, limit 100]
   ↓
 Messages appear in real-time
   ↓
-(User clicks Delete — creator only)
+(Optionally — creator clicks Delete)
   ↓
-deleteRoom() → paginated batch delete ← room doc delete
+deleteRoom() → paginated batch delete messages + members → delete room doc
 ```
 
 ### Data Model
 
 ```
 /rooms/{roomCode}
-├── roomCode: string        # 1–50 chars, no / ? #
-├── createdByUid: string    # Anonymous UID
+├── roomCode: string        # Unique, 1–50 chars, no / ? #
+├── createdByUid: string    # Google UID
 ├── createdAt: Timestamp
 └── schemaVersion: number
 
@@ -223,6 +265,10 @@ deleteRoom() → paginated batch delete ← room doc delete
 ├── senderNickname: string
 ├── senderUid: string
 └── text: string             # 1–500 chars
+
+/rooms/{roomCode}/members/{userId}
+├── nickname: string
+└── joinedAt: Timestamp
 ```
 
 ### Scroll System
@@ -251,15 +297,18 @@ deleteRoom() → paginated batch delete ← room doc delete
 
 ## 🛡️ Security Rules
 
-| Action            | Rule                                                           |
-| ----------------- | -------------------------------------------------------------- |
-| Room create       | Signed-in, valid code, `createdByUid` = caller                 |
-| Room read         | Signed-in                                                      |
-| Room delete       | Only `createdByUid`                                            |
-| Message create    | Signed-in, room exists, `senderUid` = caller, validated fields |
-| Message read/list | Signed-in, limit ≤ 100                                         |
-| Message delete    | Only room creator (via `get()` on parent room)                 |
-| Room listing      | ❌ Denied                                                      |
+| Action                  | Rule                                                           |
+| ----------------------- | -------------------------------------------------------------- |
+| Room create             | Signed-in, valid code, `createdByUid` = caller                 |
+| Room read               | Signed-in, valid code                                          |
+| Room delete             | Only `createdByUid`                                            |
+| Room listing            | ❌ Denied                                                      |
+| Message create          | Signed-in, room exists, `senderUid` = caller, validated fields |
+| Message read/list       | Signed-in, limit ≤ 100                                         |
+| Message delete          | Only room creator (via `get()` on parent room)                 |
+| Member create           | Signed-in, `userId` = caller, valid nickname                   |
+| Member read/list        | Signed-in, valid code                                          |
+| Member delete           | Signed-in, `userId` = caller                                   |
 
 ---
 
@@ -285,10 +334,13 @@ npm run build
 Deploy `dist/` to any static host:
 
 ```bash
+# Vercel (recommended)
+# Connect GitHub repo → Vercel auto-deploys
+
 # Firebase Hosting
 npx firebase deploy --only hosting
 
-# Vercel / Netlify / Cloudflare Pages
+# Netlify / Cloudflare Pages
 # Point to dist/ as publish directory
 ```
 

@@ -96,6 +96,39 @@ export function JoinRoomForm() {
     }
   }
 
+  async function handleCreateRoom() {
+    const normalizedNickname = normalizeNickname(nickname);
+
+    if (!normalizedNickname || normalizedNickname.length < 2) {
+      setErrors({ nickname: "Nickname must be at least 2 characters." });
+      return;
+    }
+
+    if (!user) {
+      setSubmitError("Authentication is still starting. Try again.");
+      return;
+    }
+
+    try {
+      setIsSubmitting(true);
+      setSubmitError(null);
+
+      try {
+        sessionStorage.setItem("roomly:nickname", normalizedNickname);
+      } catch {
+        // Storage can be unavailable in hardened/private browser modes.
+      }
+
+      const { createNewRoom } = await import("@/features/rooms/roomService");
+      const newRoomCode = await createNewRoom(user.uid);
+      await navigate(`/room/${newRoomCode}`);
+    } catch (error) {
+      setSubmitError(getRoomJoinErrorMessage(error));
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
   return (
     <form
       className="mt-8 space-y-4"
@@ -104,6 +137,16 @@ export function JoinRoomForm() {
         void handleSubmit(event);
       }}
     >
+      <Button className="w-full" disabled={isSubmitting} type="button" onClick={() => { void handleCreateRoom(); }}>
+        {isSubmitting ? "Creating..." : "Create New Room"}
+      </Button>
+
+      <div className="flex items-center gap-3">
+        <div className="h-px flex-1 bg-white/20 dark:bg-white/10" />
+        <span className="text-xs font-medium text-slate-500 dark:text-slate-400">or</span>
+        <div className="h-px flex-1 bg-white/20 dark:bg-white/10" />
+      </div>
+
       <Input
         autoComplete="nickname"
         autoFocus
@@ -140,7 +183,7 @@ export function JoinRoomForm() {
       ) : null}
 
       <Button className="w-full" disabled={isSubmitting} type="submit">
-        {isSubmitting ? "Joining..." : "Join"}
+        {isSubmitting ? "Joining..." : "Join Room"}
       </Button>
     </form>
   );

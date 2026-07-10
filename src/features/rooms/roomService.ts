@@ -47,6 +47,52 @@ export function getRoomDocumentReference(roomCode: string) {
   ) as DocumentReference<RoomDocument>;
 }
 
+const ROOM_CODE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789";
+export const ROOM_CODE_LENGTH = 6;
+
+export function generateRoomCode(): string {
+  const array = new Uint8Array(ROOM_CODE_LENGTH);
+  crypto.getRandomValues(array);
+  let code = "";
+
+  for (let i = 0; i < ROOM_CODE_LENGTH; i++) {
+    const charIndex = array[i];
+
+    if (charIndex === undefined) {
+      continue;
+    }
+
+    code += ROOM_CODE_CHARS.charAt(charIndex % ROOM_CODE_CHARS.length);
+  }
+
+  return code;
+}
+
+export async function createNewRoom(
+  userUid: string,
+  maxAttempts = 5,
+): Promise<string> {
+  if (!userUid) {
+    throw new Error("Authentication is still starting. Try again.");
+  }
+
+  for (let i = 0; i < maxAttempts; i++) {
+    const roomCode = generateRoomCode();
+
+    try {
+      const result = await joinOrCreateRoom(roomCode, userUid);
+
+      if (result.created) {
+        return roomCode;
+      }
+    } catch {
+      // Collision or error, retry with new code
+    }
+  }
+
+  throw new Error("Could not create room. Please try again.");
+}
+
 export async function joinOrCreateRoom(
   roomCode: string,
   userUid: string,

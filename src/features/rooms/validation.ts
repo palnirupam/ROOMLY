@@ -2,7 +2,10 @@ export const NICKNAME_MIN_LENGTH = 2;
 export const NICKNAME_MAX_LENGTH = 20;
 export const ROOM_CODE_MAX_LENGTH = 50;
 
-const ROOM_CODE_PATTERN = /^[\w-]{1,50}$/;
+// eslint-disable-next-line no-control-regex
+const FORBIDDEN_CHARS = /[\x00-\x1f\x7f/?#]/;
+// eslint-disable-next-line no-control-regex
+const FORBIDDEN_CHARS_GLOBAL = /[\x00-\x1f\x7f/?#]/g;
 
 export type JoinRoomInput = {
   nickname: string;
@@ -30,7 +33,10 @@ export function normalizeNickname(nickname: string) {
 }
 
 export function normalizeRoomCode(roomCode: string) {
-  return roomCode.replace(/[^\w-]/g, "").slice(0, ROOM_CODE_MAX_LENGTH);
+  return roomCode
+    .replace(FORBIDDEN_CHARS_GLOBAL, "")
+    .trim()
+    .slice(0, ROOM_CODE_MAX_LENGTH);
 }
 
 export function isValidNickname(nickname: string) {
@@ -43,7 +49,12 @@ export function isValidNickname(nickname: string) {
 }
 
 export function isValidRoomCode(roomCode: string) {
-  return ROOM_CODE_PATTERN.test(roomCode);
+  return (
+    roomCode.length >= 1 &&
+    roomCode.length <= ROOM_CODE_MAX_LENGTH &&
+    roomCode === roomCode.trim() &&
+    !FORBIDDEN_CHARS.test(roomCode)
+  );
 }
 
 export function validateJoinRoomInput(
@@ -61,7 +72,8 @@ export function validateJoinRoomInput(
   }
 
   if (!isValidRoomCode(input.roomCode)) {
-    errors.roomCode = "Room code must be 1-50 characters (letters, numbers, dash, underscore).";
+    errors.roomCode =
+      "Room code must be 1-50 characters. Symbols / ? # are not allowed.";
   }
 
   return errors;

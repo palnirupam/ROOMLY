@@ -129,7 +129,11 @@ export function subscribeToMessages({
   roomCode,
 }: SubscribeToMessagesInput): Unsubscribe {
   if (!isValidRoomCode(roomCode)) {
-    onError(new Error("Room code must be 1-50 characters (letters, numbers, dash, underscore)."));
+    onError(
+      new Error(
+        "Room code must be 1-50 characters. Symbols / ? # are not allowed.",
+      ),
+    );
     return noopUnsubscribe;
   }
 
@@ -170,7 +174,9 @@ export async function sendTextMessage({
   }
 
   if (!isValidRoomCode(roomCode)) {
-    throw new Error("Room code must be 1-50 characters (letters, numbers, dash, underscore).");
+    throw new Error(
+      "Room code must be 1-50 characters. Symbols / ? # are not allowed.",
+    );
   }
 
   if (!userUid) {

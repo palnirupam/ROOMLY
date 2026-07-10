@@ -22,16 +22,16 @@
 
 <div align="center">
 
-| | |
-|---|---|
-| 🔑 **Anonymous Auth** | Instant access — no email, no password, no account |
-| 🪪 **Room Codes** | Pick any code (1–50 chars), share it, join. That's it. |
-| ⚡ **Real-time Chat** | Messages appear instantly via Firestore live sync |
-| 🌙 **Dark Mode** | Toggle theme — light ↔ dark |
-| 📜 **Smooth Scroll** | Fluid auto-scroll, RAF-throttled, invisible scrollbars |
-| 🗑️ **Room Deletion** | Creator can nuke all messages & the room in one click |
-| 📱 **Mobile Ready** | Responsive layout with safe-area insets |
-| ♿ **Accessible** | ARIA labels, live regions, keyboard nav, reduced-motion |
+|                       |                                                         |
+| --------------------- | ------------------------------------------------------- |
+| 🔑 **Anonymous Auth** | Instant access — no email, no password, no account      |
+| 🪪 **Room Codes**     | Pick any code (1–50 chars), share it, join. That's it.  |
+| ⚡ **Real-time Chat** | Messages appear instantly via Firestore live sync       |
+| 🌙 **Dark Mode**      | Toggle theme — light ↔ dark                             |
+| 📜 **Smooth Scroll**  | Fluid auto-scroll, RAF-throttled, invisible scrollbars  |
+| 🗑️ **Room Deletion**  | Creator can nuke all messages & the room in one click   |
+| 📱 **Mobile Ready**   | Responsive layout with safe-area insets                 |
+| ♿ **Accessible**     | ARIA labels, live regions, keyboard nav, reduced-motion |
 
 </div>
 
@@ -50,17 +50,17 @@ graph LR
     H[Vite 8] --> A
 ```
 
-| Layer | Technology | Purpose |
-|---|---|---|
-| <img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/react/react-original.svg" width="18" /> **Framework** | React 19 | UI components & hooks |
-| <img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/typescript/typescript-original.svg" width="18" /> **Language** | TypeScript 6 | Type safety |
-| ⚡ **Build** | Vite 8 | HMR dev server & bundling |
-| 🎨 **Styling** | Tailwind CSS 4 | Utility-first CSS |
-| 🎬 **Animation** | Motion (Framer Motion) | Enter/exit & layout animations |
-| 🔥 **Backend** | Firebase Firestore + Auth | Real-time DB & anonymous auth |
-| 🧹 **Linting** | ESLint 10 | Zero-warnings enforcement |
-| ✨ **Formatting** | Prettier | Consistent code style |
-| 🪝 **Git Hooks** | Husky + lint-staged | Pre-commit checks |
+| Layer                                                                                                                       | Technology                | Purpose                        |
+| --------------------------------------------------------------------------------------------------------------------------- | ------------------------- | ------------------------------ |
+| <img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/react/react-original.svg" width="18" /> **Framework**          | React 19                  | UI components & hooks          |
+| <img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/typescript/typescript-original.svg" width="18" /> **Language** | TypeScript 6              | Type safety                    |
+| ⚡ **Build**                                                                                                                | Vite 8                    | HMR dev server & bundling      |
+| 🎨 **Styling**                                                                                                              | Tailwind CSS 4            | Utility-first CSS              |
+| 🎬 **Animation**                                                                                                            | Motion (Framer Motion)    | Enter/exit & layout animations |
+| 🔥 **Backend**                                                                                                              | Firebase Firestore + Auth | Real-time DB & anonymous auth  |
+| 🧹 **Linting**                                                                                                              | ESLint 10                 | Zero-warnings enforcement      |
+| ✨ **Formatting**                                                                                                           | Prettier                  | Consistent code style          |
+| 🪝 **Git Hooks**                                                                                                            | Husky + lint-staged       | Pre-commit checks              |
 
 ---
 
@@ -212,7 +212,7 @@ deleteRoom() → paginated batch delete ← room doc delete
 
 ```
 /rooms/{roomCode}
-├── roomCode: string        # 1–50 chars [\w-]
+├── roomCode: string        # 1–50 chars, no / ? #
 ├── createdByUid: string    # Anonymous UID
 ├── createdAt: Timestamp
 └── schemaVersion: number
@@ -251,28 +251,28 @@ deleteRoom() → paginated batch delete ← room doc delete
 
 ## 🛡️ Security Rules
 
-| Action | Rule |
-|---|---|
-| Room create | Signed-in, valid code, `createdByUid` = caller |
-| Room read | Signed-in |
-| Room delete | Only `createdByUid` |
-| Message create | Signed-in, room exists, `senderUid` = caller, validated fields |
-| Message read/list | Signed-in, limit ≤ 100 |
-| Message delete | Only room creator (via `get()` on parent room) |
-| Room listing | ❌ Denied |
+| Action            | Rule                                                           |
+| ----------------- | -------------------------------------------------------------- |
+| Room create       | Signed-in, valid code, `createdByUid` = caller                 |
+| Room read         | Signed-in                                                      |
+| Room delete       | Only `createdByUid`                                            |
+| Message create    | Signed-in, room exists, `senderUid` = caller, validated fields |
+| Message read/list | Signed-in, limit ≤ 100                                         |
+| Message delete    | Only room creator (via `get()` on parent room)                 |
+| Room listing      | ❌ Denied                                                      |
 
 ---
 
 ## 📜 Scripts
 
-| Script | What it does |
-|---|---|
-| `npm run dev` | Start dev server with HMR |
-| `npm run build` | `tsc -b && vite build` |
-| `npm run preview` | Preview production build |
-| `npm run lint` | ESLint — zero warnings enforced |
-| `npm run format` | Prettier — write all files |
-| `npm run format:check` | Prettier — check-only |
+| Script                 | What it does                    |
+| ---------------------- | ------------------------------- |
+| `npm run dev`          | Start dev server with HMR       |
+| `npm run build`        | `tsc -b && vite build`          |
+| `npm run preview`      | Preview production build        |
+| `npm run lint`         | ESLint — zero warnings enforced |
+| `npm run format`       | Prettier — write all files      |
+| `npm run format:check` | Prettier — check-only           |
 
 ---
 

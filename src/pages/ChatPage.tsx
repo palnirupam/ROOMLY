@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Navigate, useNavigate, useParams } from "react-router";
 
 import { ChatHeader } from "@/features/chat/components/ChatHeader";
@@ -16,6 +16,13 @@ import {
   isValidRoomCode,
   normalizeNickname,
 } from "@/features/rooms/validation";
+import {
+  joinRoom,
+  leaveRoom,
+  subscribeToMembers,
+  type Member,
+} from "@/features/rooms/memberService";
+import { MemberToast, MemberToastContainer } from "@/shared/ui/MemberToast";
 import { Button } from "@/shared/ui/Button";
 import { PageTransition } from "@/shared/ui/PageTransition";
 import { Card } from "@/shared/ui/Card";
@@ -49,6 +56,30 @@ function ChatRoom({ nickname, roomCode }: ChatRoomProps) {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [isCreator, setIsCreator] = useState(false);
+  const [memberCount, setMemberCount] = useState(0);
+
+  type Notification = {
+    id: string;
+    message: string;
+    variant: "join" | "leave";
+  };
+
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const prevMembersRef = useRef<Map<string, Member>>(new Map());
+  const isFirstSnapshotRef = useRef(true);
+  const notifIdRef = useRef(0);
+  const isTabVisibleRef = useRef(true);
+
+  useEffect(() => {
+    function handleVisibility() {
+      isTabVisibleRef.current = document.visibilityState === "visible";
+    }
+
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibility);
+    };
+  }, []);
 
   const {
     connectionStatus,
@@ -71,12 +102,8 @@ function ChatRoom({ nickname, roomCode }: ChatRoomProps) {
 
     let cancelled = false;
 
-    async function checkCreator() {
-      try {
-        const roomSnapshot = await getDoc(
-          getRoomDocumentReference(roomCode),
-        );
-
+    getDoc(getRoomDocumentReference(roomCode))
+      .then((roomSnapshot) => {
         if (cancelled) {
           return;
         }
@@ -85,21 +112,91 @@ function ChatRoom({ nickname, roomCode }: ChatRoomProps) {
           roomSnapshot.exists() &&
             roomSnapshot.data().createdByUid === user.uid,
         );
-      } catch {
+      })
+      .catch(() => {
         if (!cancelled) {
           setIsCreator(false);
         }
-        } finally {
-          // State check complete.
-        }
-    }
-
-    void checkCreator();
+      });
 
     return () => {
       cancelled = true;
     };
   }, [roomCode, user]);
+
+  useEffect(() => {
+    if (!user) {
+      return;
+    }
+
+    let cancelled = false;
+
+    void joinRoom(roomCode, user.uid, nickname);
+
+    const unsubscribe = subscribeToMembers(roomCode, (members) => {
+      if (cancelled) {
+        return;
+      }
+
+      setMemberCount(members.length);
+
+      if (!isTabVisibleRef.current) {
+        prevMembersRef.current = new Map(
+          members.map((member) => [member.uid, member]),
+        );
+        return;
+      }
+
+      if (isFirstSnapshotRef.current) {
+        isFirstSnapshotRef.current = false;
+        prevMembersRef.current = new Map(
+          members.map((member) => [member.uid, member]),
+        );
+        return;
+      }
+
+      const previousMembers = prevMembersRef.current;
+      const currentMembers = new Map(
+        members.map((member) => [member.uid, member]),
+      );
+
+      for (const member of members) {
+        if (member.uid === user.uid) {
+          continue;
+        }
+
+        if (!previousMembers.has(member.uid)) {
+          const id = (++notifIdRef.current).toString();
+          setNotifications((currentNotifications) => [
+            ...currentNotifications,
+            { id, message: `${member.nickname} joined`, variant: "join" },
+          ]);
+        }
+      }
+
+      for (const [uid, member] of previousMembers) {
+        if (uid === user.uid) {
+          continue;
+        }
+
+        if (!currentMembers.has(uid)) {
+          const id = (++notifIdRef.current).toString();
+          setNotifications((currentNotifications) => [
+            ...currentNotifications,
+            { id, message: `${member.nickname} left`, variant: "leave" },
+          ]);
+        }
+      }
+
+      prevMembersRef.current = currentMembers;
+    });
+
+    return () => {
+      cancelled = true;
+      unsubscribe();
+      void leaveRoom(roomCode, user.uid);
+    };
+  }, [roomCode, user, nickname]);
 
   const handleDeleteRoom = useCallback(async () => {
     if (!user) {
@@ -110,6 +207,12 @@ function ChatRoom({ nickname, roomCode }: ChatRoomProps) {
     await navigate("/join");
   }, [navigate, roomCode, user]);
 
+  function handleDismissNotification(id: string) {
+    setNotifications((currentNotifications) =>
+      currentNotifications.filter((notification) => notification.id !== id),
+    );
+  }
+
   return (
     <PageTransition>
       <main className="safe-page bg-app-gradient flex h-dvh text-slate-950 dark:text-slate-50">
@@ -117,9 +220,10 @@ function ChatRoom({ nickname, roomCode }: ChatRoomProps) {
           <ChatHeader
             connectionStatus={connectionStatus}
             isCreator={isCreator}
+            memberCount={memberCount}
             nickname={nickname}
-            onDeleteRoom={isCreator ? handleDeleteRoom : undefined}
             roomCode={roomCode}
+            {...(isCreator ? { onDeleteRoom: handleDeleteRoom } : {})}
           />
 
           <Card className="flex min-h-0 flex-1 flex-col gap-4">
@@ -152,6 +256,18 @@ function ChatRoom({ nickname, roomCode }: ChatRoomProps) {
             />
           </Card>
         </Container>
+
+        <MemberToastContainer>
+          {notifications.map((notification) => (
+            <MemberToast
+              key={notification.id}
+              id={notification.id}
+              message={notification.message}
+              variant={notification.variant}
+              onDismiss={handleDismissNotification}
+            />
+          ))}
+        </MemberToastContainer>
       </main>
     </PageTransition>
   );

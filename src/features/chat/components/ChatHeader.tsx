@@ -11,6 +11,7 @@ import { cn } from "@/shared/lib/cn";
 type ChatHeaderProps = {
   connectionStatus: ChatConnectionStatus;
   isCreator: boolean;
+  memberCount?: number;
   nickname: string;
   onDeleteRoom?: () => Promise<void>;
   roomCode: string;
@@ -37,6 +38,7 @@ function getInitial(nickname: string) {
 function ChatHeaderComponent({
   connectionStatus,
   isCreator,
+  memberCount = 0,
   nickname,
   onDeleteRoom,
   roomCode,
@@ -133,6 +135,11 @@ function ChatHeaderComponent({
               >
                 {statusLabels[connectionStatus]}
               </span>
+              {memberCount > 0 ? (
+                <span className="shrink-0 rounded-full border border-white/30 bg-white/40 px-2.5 py-1 text-xs font-medium text-slate-600 dark:border-white/10 dark:bg-white/10 dark:text-slate-300">
+                  {memberCount} {memberCount === 1 ? "Member" : "Members"}
+                </span>
+              ) : null}
             </div>
             <p className="mt-1 truncate text-sm text-slate-600 dark:text-slate-300">
               {nickname}

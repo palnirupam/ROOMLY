@@ -19,13 +19,13 @@ const popoverVariants = {
     opacity: 1,
     scale: 1,
     y: 0,
-    transition: { type: "spring", damping: 22, stiffness: 320 },
+    transition: { type: "spring" as const, damping: 22, stiffness: 320 },
   },
   exit: {
     opacity: 0,
     scale: 0.85,
     y: 8,
-    transition: { duration: 0.12, ease: "easeIn" },
+    transition: { duration: 0.12, ease: "easeIn" as const },
   },
 };
 
@@ -65,11 +65,9 @@ function EmojiPickerComponent({
     };
   }, [isOpen, anchorRef]);
 
-  useEffect(() => {
-    if (!isOpen) {
-      setIsPickerReady(false);
-    }
-  }, [isOpen]);
+  if (!isOpen && isPickerReady) {
+    setIsPickerReady(false);
+  }
 
   useEffect(() => {
     if (!isOpen) {

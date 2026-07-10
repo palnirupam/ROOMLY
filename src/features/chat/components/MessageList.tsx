@@ -220,7 +220,7 @@ function MessageListComponent({
         aria-label="Room messages"
         aria-live="polite"
         aria-relevant="additions text"
-        className="relative min-h-0 flex-1 overflow-y-auto overscroll-contain scrollbar-none contain-[layout_style_paint] rounded-[1.5rem] border border-white/30 bg-white/30 p-3 outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent dark:border-white/10 dark:bg-white/5"
+        className="relative min-h-0 flex-1 scrollbar-none overflow-y-auto overscroll-contain rounded-[1.5rem] border border-white/30 bg-white/30 p-3 contain-[layout_style_paint] outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent dark:border-white/10 dark:bg-white/5"
         ref={scrollContainerRef}
         role="log"
         tabIndex={0}

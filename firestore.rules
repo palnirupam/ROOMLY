@@ -7,7 +7,10 @@ service cloud.firestore {
     }
 
     function isValidRoomCode(roomCode) {
-      return roomCode.matches('^[a-zA-Z0-9_-]{1,50}$');
+      return roomCode is string &&
+        roomCode.size() >= 1 &&
+        roomCode.size() <= 50 &&
+        roomCode.matches('^[^\\/?#]+$');
     }
 
     function isValidNickname(nickname) {
@@ -74,6 +77,18 @@ service cloud.firestore {
         allow delete: if isSignedIn() &&
           isValidRoomCode(roomCode) &&
           get(/databases/$(database)/documents/rooms/$(roomCode)).data.createdByUid == request.auth.uid;
+      }
+
+      match /members/{userId} {
+        allow get, list: if isSignedIn() && isValidRoomCode(roomCode);
+        allow create: if isSignedIn() &&
+          isValidRoomCode(roomCode) &&
+          request.auth.uid == userId &&
+          request.resource.data.keys().hasOnly(['nickname', 'joinedAt']) &&
+          isValidNickname(request.resource.data.nickname);
+        allow delete: if isSignedIn() &&
+          isValidRoomCode(roomCode) &&
+          request.auth.uid == userId;
       }
     }
 

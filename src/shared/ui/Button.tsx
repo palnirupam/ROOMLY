@@ -4,6 +4,7 @@ import {
   type ButtonHTMLAttributes,
   type ReactElement,
   type ReactNode,
+  type Ref,
 } from "react";
 
 import { cn } from "@/shared/lib/cn";
@@ -14,6 +15,7 @@ type ButtonSize = "sm" | "md" | "lg";
 type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
   asChild?: false;
   children: ReactNode;
+  ref?: Ref<HTMLButtonElement>;
   size?: ButtonSize;
   variant?: ButtonVariant;
 };

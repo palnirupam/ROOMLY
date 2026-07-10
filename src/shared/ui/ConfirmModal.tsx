@@ -26,13 +26,13 @@ const modalVariants = {
     opacity: 1,
     scale: 1,
     y: 0,
-    transition: { type: "spring", damping: 25, stiffness: 350 },
+    transition: { type: "spring" as const, damping: 25, stiffness: 350 },
   },
   exit: {
     opacity: 0,
     scale: 0.92,
     y: 16,
-    transition: { duration: 0.15, ease: "easeIn" },
+    transition: { duration: 0.15, ease: "easeIn" as const },
   },
 };
 
@@ -95,7 +95,7 @@ function ConfirmModalComponent({
               </p>
             </div>
 
-            <div className="flex justify-end gap-2 px-6 pb-6 pt-5">
+            <div className="flex justify-end gap-2 px-6 pt-5 pb-6">
               <Button
                 disabled={isProcessing}
                 size="sm"

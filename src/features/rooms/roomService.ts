@@ -52,7 +52,9 @@ export async function joinOrCreateRoom(
   userUid: string,
 ): Promise<JoinRoomResult> {
   if (!isValidRoomCode(roomCode)) {
-    throw new Error("Room code must be 1-50 characters (letters, numbers, dash, underscore).");
+    throw new Error(
+      "Room code must be 1-50 characters. Symbols / ? # are not allowed.",
+    );
   }
 
   if (!userUid) {
@@ -93,7 +95,9 @@ export async function deleteRoom(
   userUid: string,
 ): Promise<void> {
   if (!isValidRoomCode(roomCode)) {
-    throw new Error("Room code must be 1-50 characters (letters, numbers, dash, underscore).");
+    throw new Error(
+      "Room code must be 1-50 characters. Symbols / ? # are not allowed.",
+    );
   }
 
   if (!userUid) {
@@ -119,6 +123,7 @@ export async function deleteRoom(
     MESSAGES_COLLECTION,
   );
 
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
   while (true) {
     const messagesQuery = query(
       messagesReference,
@@ -145,6 +150,32 @@ export async function deleteRoom(
     if (deletedCount < MESSAGE_BATCH_SIZE) {
       break;
     }
+  }
+
+  const membersReference = collection(
+    firestore,
+    ROOMS_COLLECTION,
+    roomCode,
+    "members",
+  );
+
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+  while (true) {
+    const membersQuery = query(membersReference, limit(MESSAGE_BATCH_SIZE));
+
+    const membersSnapshot = await getDocs(membersQuery);
+
+    if (membersSnapshot.empty) {
+      break;
+    }
+
+    const batch = writeBatch(firestore);
+
+    for (const memberDocument of membersSnapshot.docs) {
+      batch.delete(memberDocument.ref);
+    }
+
+    await batch.commit();
   }
 
   await deleteDoc(roomReference);

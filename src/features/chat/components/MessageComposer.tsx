@@ -41,34 +41,35 @@ function MessageComposerComponent({
     textarea.style.height = `${Math.min(textarea.scrollHeight, 144).toString()}px`;
   }, [message]);
 
-  const handleEmojiSelect = useCallback((emoji: string) => {
-    const textarea = textareaRef.current;
+  const handleEmojiSelect = useCallback(
+    (emoji: string) => {
+      const textarea = textareaRef.current;
 
-    if (!textarea) {
-      setMessage((currentMessage) => currentMessage + emoji);
-      return;
-    }
+      if (!textarea) {
+        setMessage((currentMessage) => currentMessage + emoji);
+        return;
+      }
 
-    const start = textarea.selectionStart;
-    const end = textarea.selectionEnd;
-    const newMessage = message.slice(0, start) + emoji + message.slice(end);
+      const start = textarea.selectionStart;
+      const end = textarea.selectionEnd;
+      const newMessage = message.slice(0, start) + emoji + message.slice(end);
 
-    setMessage(newMessage);
+      setMessage(newMessage);
 
-    requestAnimationFrame(() => {
-      const newCursorPosition = start + emoji.length;
-      textarea.setSelectionRange(newCursorPosition, newCursorPosition);
-      textarea.focus();
-    });
-  }, [message]);
+      requestAnimationFrame(() => {
+        const newCursorPosition = start + emoji.length;
+        textarea.setSelectionRange(newCursorPosition, newCursorPosition);
+        textarea.focus();
+      });
+    },
+    [message],
+  );
 
   function handleChange(event: ChangeEvent<HTMLTextAreaElement>) {
     setMessage(event.target.value.slice(0, MAX_MESSAGE_LENGTH));
   }
 
-  async function handleSubmit(event: SyntheticEvent<HTMLFormElement>) {
-    event.preventDefault();
-
+  async function performSend() {
     if (!trimmedMessage || disabled) {
       return;
     }
@@ -76,6 +77,22 @@ function MessageComposerComponent({
     await onSend(trimmedMessage);
     setMessage("");
     textareaRef.current?.focus();
+  }
+
+  function handleKeyDown(event: React.KeyboardEvent<HTMLTextAreaElement>) {
+    if (
+      event.key === "Enter" &&
+      !event.shiftKey &&
+      !event.nativeEvent.isComposing
+    ) {
+      event.preventDefault();
+      void performSend();
+    }
+  }
+
+  async function handleSubmit(event: SyntheticEvent<HTMLFormElement>) {
+    event.preventDefault();
+    await performSend();
   }
 
   return (
@@ -103,6 +120,7 @@ function MessageComposerComponent({
           rows={1}
           value={message}
           onChange={handleChange}
+          onKeyDown={handleKeyDown}
         />
         <Button
           aria-label="Pick emoji"

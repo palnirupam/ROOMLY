@@ -31,11 +31,15 @@ function removeValidationError(
   return nextErrors;
 }
 
-export function JoinRoomForm() {
+type JoinRoomFormProps = {
+  initialRoomCode?: string;
+};
+
+export function JoinRoomForm({ initialRoomCode = "" }: JoinRoomFormProps) {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [nickname, setNickname] = useState("");
-  const [roomCode, setRoomCode] = useState("");
+  const [roomCode, setRoomCode] = useState(initialRoomCode);
   const [errors, setErrors] = useState<JoinRoomValidationErrors>({});
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);

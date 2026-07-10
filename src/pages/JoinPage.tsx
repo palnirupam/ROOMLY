@@ -1,3 +1,4 @@
+import { useSearchParams } from "react-router";
 import { JoinRoomForm } from "@/features/rooms/JoinRoomForm";
 import { PageTransition } from "@/shared/ui/PageTransition";
 import { Card } from "@/shared/ui/Card";
@@ -5,6 +6,9 @@ import { Container } from "@/shared/ui/Container";
 import { Header } from "@/shared/ui/Header";
 
 export function JoinPage() {
+  const [searchParams] = useSearchParams();
+  const initialRoomCode = searchParams.get("code") ?? undefined;
+
   return (
     <PageTransition>
       <main className="safe-page bg-app-gradient min-h-dvh text-slate-950 dark:text-slate-50">
@@ -25,7 +29,7 @@ export function JoinPage() {
                 </p>
               </div>
 
-              <JoinRoomForm />
+              <JoinRoomForm {...(initialRoomCode ? { initialRoomCode } : {})} />
             </Card>
           </section>
         </Container>

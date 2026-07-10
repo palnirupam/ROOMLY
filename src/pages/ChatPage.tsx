@@ -38,10 +38,14 @@ function getStoredNickname() {
 
 export function ChatPage() {
   const { roomCode } = useParams();
-  const nickname = useMemo(() => getStoredNickname() || "Guest", []);
+  const nickname = useMemo(() => getStoredNickname(), []);
 
   if (!roomCode || !isValidRoomCode(roomCode)) {
     return <Navigate replace to="/join" />;
+  }
+
+  if (!nickname) {
+    return <Navigate replace to={`/join?code=${encodeURIComponent(roomCode)}`} />;
   }
 
   return <ChatRoom nickname={nickname} roomCode={roomCode} />;

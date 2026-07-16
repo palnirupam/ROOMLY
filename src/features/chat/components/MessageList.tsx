@@ -6,11 +6,17 @@ import { LoadingSkeleton } from "@/features/chat/components/LoadingSkeleton";
 import { MessageBubble } from "@/features/chat/components/MessageBubble";
 import type { ChatMessage } from "@/features/chat/types";
 import { Button } from "@/shared/ui/Button";
+import { ConfirmModal } from "@/shared/ui/ConfirmModal";
 
 type MessageListProps = {
   currentNickname: string;
   isLoading?: boolean;
   messages: ChatMessage[];
+  onDeleteMessage: (messageId: string) => Promise<void>;
+  onEditMessage: (messageId: string, text: string) => Promise<void>;
+  onReactToMessage: (messageId: string, emoji: string) => void;
+  onReplyToMessage: (message: ChatMessage) => void;
+  seenCounts?: Record<string, number>;
 };
 
 type MessageListItem =
@@ -133,12 +139,21 @@ function MessageListComponent({
   currentNickname,
   isLoading = false,
   messages,
+  onDeleteMessage,
+  onEditMessage,
+  onReactToMessage,
+  onReplyToMessage,
+  seenCounts = {},
 }: MessageListProps) {
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
   const shouldStickToBottomRef = useRef(true);
   const showScrollButtonRef = useRef(false);
   const scrollRafRef = useRef<number | null>(null);
   const [showScrollButton, setShowScrollButton] = useState(false);
+  const [messageToDelete, setMessageToDelete] = useState<ChatMessage | null>(
+    null,
+  );
+  const [isDeleting, setIsDeleting] = useState(false);
   const listItems = useMemo(() => buildMessageListItems(messages), [messages]);
 
   const setScrollButtonVisibility = useCallback((isVisible: boolean) => {
@@ -187,6 +202,22 @@ function MessageListComponent({
     shouldStickToBottomRef.current = true;
     setScrollButtonVisibility(false);
   }, [setScrollButtonVisibility]);
+
+  async function handleDeleteConfirm() {
+    if (!messageToDelete) {
+      return;
+    }
+
+    try {
+      setIsDeleting(true);
+      await onDeleteMessage(messageToDelete.id);
+      setMessageToDelete(null);
+    } catch {
+      setMessageToDelete(null);
+    } finally {
+      setIsDeleting(false);
+    }
+  }
 
   useEffect(() => {
     return () => {
@@ -237,7 +268,15 @@ function MessageListComponent({
                 item.type === "date" ? (
                   <DateSeparator key={item.id} label={item.label} />
                 ) : (
-                  <MessageBubble key={item.id} message={item.message} />
+                  <MessageBubble
+                    key={item.id}
+                    message={item.message}
+                    seenCount={seenCounts[item.message.id] ?? 0}
+                    onEdit={onEditMessage}
+                    onReact={onReactToMessage}
+                    onReply={onReplyToMessage}
+                    onRequestDelete={setMessageToDelete}
+                  />
                 ),
               )}
             </AnimatePresence>
@@ -256,6 +295,21 @@ function MessageListComponent({
           Latest
         </Button>
       ) : null}
+
+      <ConfirmModal
+        confirmLabel="Delete"
+        description="This message will be permanently deleted."
+        isOpen={Boolean(messageToDelete)}
+        isProcessing={isDeleting}
+        title="Delete this message?"
+        variant="danger"
+        onCancel={() => {
+          setMessageToDelete(null);
+        }}
+        onConfirm={() => {
+          void handleDeleteConfirm();
+        }}
+      />
     </div>
   );
 }

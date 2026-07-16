@@ -31,6 +31,66 @@ service cloud.firestore {
         clientMessageId.size() <= 80;
     }
 
+    function isValidReply(reply) {
+      return reply == null || (
+        reply is map &&
+        reply.keys().hasOnly(['messageId', 'nickname', 'text']) &&
+        reply.messageId is string &&
+        reply.messageId.size() > 0 &&
+        reply.messageId.size() <= 128 &&
+        isValidNickname(reply.nickname) &&
+        isValidMessageText(reply.text) &&
+        reply.text.size() <= 120
+      );
+    }
+
+    function isValidReaction(reaction) {
+      return reaction is string &&
+        reaction.size() > 0 &&
+        reaction.size() <= 16;
+    }
+
+    function isOwnMessageEdit() {
+      return resource.data.senderUid == request.auth.uid &&
+        request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['text', 'editedAt']) &&
+        isValidMessageText(request.resource.data.text) &&
+        request.resource.data.editedAt == request.time;
+    }
+
+    function isValidReactionUpdate() {
+      let previousReactions = resource.data.get('reactions', {});
+      let nextReactions = request.resource.data.reactions;
+      return request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['reactions']) &&
+        nextReactions is map &&
+        nextReactions.size() <= 100 &&
+        nextReactions.diff(previousReactions).affectedKeys()
+          .hasOnly([request.auth.uid]) &&
+        (
+          !nextReactions.keys().hasAny([request.auth.uid]) ||
+          isValidReaction(nextReactions[request.auth.uid])
+        );
+    }
+
+    function isValidMemberDocument(member) {
+      return member.keys().hasOnly([
+          'uid',
+          'nickname',
+          'joinedAt',
+          'lastSeenAt',
+          'lastReadAt',
+          'isTyping'
+        ]) &&
+        member.uid is string &&
+        member.uid == request.auth.uid &&
+        isValidNickname(member.nickname) &&
+        member.joinedAt is timestamp &&
+        member.lastSeenAt is timestamp &&
+        member.lastReadAt is timestamp &&
+        member.isTyping is bool;
+    }
+
     match /rooms/{roomCode} {
       allow get: if isSignedIn() && isValidRoomCode(roomCode);
       allow list: if false;
@@ -64,6 +124,8 @@ service cloud.firestore {
           request.resource.data.keys().hasOnly([
             'clientMessageId',
             'createdAt',
+            'reactions',
+            'replyTo',
             'senderNickname',
             'senderUid',
             'text'
@@ -72,23 +134,66 @@ service cloud.firestore {
           request.resource.data.senderUid == request.auth.uid &&
           isValidNickname(request.resource.data.senderNickname) &&
           isValidMessageText(request.resource.data.text) &&
-          isValidClientMessageId(request.resource.data.clientMessageId);
+          isValidClientMessageId(request.resource.data.clientMessageId) &&
+          request.resource.data.reactions is map &&
+          request.resource.data.reactions.size() == 0 &&
+          isValidReply(request.resource.data.replyTo);
+
+        allow update: if isSignedIn() &&
+          isValidRoomCode(roomCode) &&
+          (isOwnMessageEdit() || isValidReactionUpdate());
 
         allow delete: if isSignedIn() &&
           isValidRoomCode(roomCode) &&
-          get(/databases/$(database)/documents/rooms/$(roomCode)).data.createdByUid == request.auth.uid;
+          (
+            resource.data.senderUid == request.auth.uid ||
+            get(/databases/$(database)/documents/rooms/$(roomCode)).data.createdByUid == request.auth.uid
+          );
       }
 
-      match /members/{userId} {
+      match /members/{presenceId} {
         allow get, list: if isSignedIn() && isValidRoomCode(roomCode);
         allow create: if isSignedIn() &&
           isValidRoomCode(roomCode) &&
-          request.auth.uid == userId &&
-          request.resource.data.keys().hasOnly(['nickname', 'joinedAt']) &&
-          isValidNickname(request.resource.data.nickname);
+          isValidMemberDocument(request.resource.data) &&
+          request.resource.data.joinedAt == request.time &&
+          request.resource.data.lastSeenAt == request.time &&
+          request.resource.data.lastReadAt == request.time &&
+          request.resource.data.isTyping == false;
+
+        allow update: if isSignedIn() &&
+          isValidRoomCode(roomCode) &&
+          resource.data.uid == request.auth.uid &&
+          isValidMemberDocument(request.resource.data) &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'nickname',
+            'joinedAt',
+            'lastSeenAt',
+            'lastReadAt',
+            'isTyping'
+          ]) &&
+          (
+            !request.resource.data.diff(resource.data).affectedKeys()
+              .hasAny(['joinedAt']) ||
+            request.resource.data.joinedAt == request.time
+          ) &&
+          (
+            !request.resource.data.diff(resource.data).affectedKeys()
+              .hasAny(['lastSeenAt']) ||
+            request.resource.data.lastSeenAt == request.time
+          ) &&
+          (
+            !request.resource.data.diff(resource.data).affectedKeys()
+              .hasAny(['lastReadAt']) ||
+            request.resource.data.lastReadAt == request.time
+          );
+
         allow delete: if isSignedIn() &&
           isValidRoomCode(roomCode) &&
-          request.auth.uid == userId;
+          (
+            resource.data.uid == request.auth.uid ||
+            get(/databases/$(database)/documents/rooms/$(roomCode)).data.createdByUid == request.auth.uid
+          );
       }
     }
 

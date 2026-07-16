@@ -1,7 +1,9 @@
 import { motion } from "motion/react";
-import { memo, useEffect, useState } from "react";
+import { Check, Copy, Moon, Share2, Sun } from "lucide-react";
+import { memo, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router";
 
+import { InviteModal } from "@/features/chat/components/InviteModal";
 import type { ChatConnectionStatus } from "@/features/chat/types";
 import { useTheme } from "@/app/theme/ThemeProvider";
 import { Button } from "@/shared/ui/Button";
@@ -46,8 +48,19 @@ function ChatHeaderComponent({
   const { theme, toggleTheme } = useTheme();
   const nextTheme = theme === "dark" ? "light" : "dark";
   const [copyStatus, setCopyStatus] = useState<"copied" | "idle">("idle");
+  const [showInvite, setShowInvite] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const inviteUrl = useMemo(() => {
+    if (typeof window === "undefined") {
+      return roomCode;
+    }
+
+    return new URL(
+      `/room/${encodeURIComponent(roomCode)}`,
+      window.location.origin,
+    ).toString();
+  }, [roomCode]);
 
   useEffect(() => {
     if (copyStatus === "idle") {
@@ -117,15 +130,20 @@ function ChatHeaderComponent({
               </h1>
               <Button
                 aria-label={`Copy room code ${roomCode}`}
-                className="h-7 rounded-xl px-2 text-xs"
+                className="size-7 rounded-lg p-0"
                 size="sm"
+                title="Copy room code"
                 type="button"
                 variant="ghost"
                 onClick={() => {
                   void handleCopyRoomCode();
                 }}
               >
-                Copy
+                {copyStatus === "copied" ? (
+                  <Check aria-hidden="true" className="size-3.5" />
+                ) : (
+                  <Copy aria-hidden="true" className="size-3.5" />
+                )}
               </Button>
               <span
                 className={cn(
@@ -151,6 +169,17 @@ function ChatHeaderComponent({
         </div>
 
         <div className="flex shrink-0 items-center justify-end gap-2">
+          <Button
+            size="sm"
+            type="button"
+            variant="secondary"
+            onClick={() => {
+              setShowInvite(true);
+            }}
+          >
+            <Share2 aria-hidden="true" className="mr-1.5 size-4" />
+            Invite
+          </Button>
           {isCreator ? (
             <Button
               className="border-rose-500/40 text-rose-600 hover:bg-rose-500/10 dark:border-rose-400/30 dark:text-rose-300"
@@ -168,12 +197,18 @@ function ChatHeaderComponent({
           </Button>
           <Button
             aria-label={`Switch to ${nextTheme} mode`}
+            className="size-9 p-0"
             size="sm"
+            title={`Switch to ${nextTheme} mode`}
             type="button"
             variant="secondary"
             onClick={toggleTheme}
           >
-            {theme === "dark" ? "Light" : "Dark"}
+            {theme === "dark" ? (
+              <Sun aria-hidden="true" className="size-4" />
+            ) : (
+              <Moon aria-hidden="true" className="size-4" />
+            )}
           </Button>
         </div>
       </div>
@@ -190,6 +225,14 @@ function ChatHeaderComponent({
         }}
         onConfirm={() => {
           void handleDeleteConfirm();
+        }}
+      />
+      <InviteModal
+        inviteUrl={inviteUrl}
+        isOpen={showInvite}
+        roomCode={roomCode}
+        onClose={() => {
+          setShowInvite(false);
         }}
       />
     </motion.header>

@@ -22,22 +22,23 @@
 
 <div align="center">
 
-|                       |                                                         |
-| --------------------- | ------------------------------------------------------- |
-| 🔑 **Google Auth** | Instant access — one click with your Google account      |
-| 🚀 **Create Room**    | One-click random room code generation — no manual entry |
-| 🔗 **Invite Link**    | Share the link, friends join instantly                   |
-| 🪪 **Room Codes**     | Or pick any custom code (1–50 chars)                    |
-| ⚡ **Real-time Chat** | Messages appear instantly via Firestore live sync       |
-| 🎨 **Nickname Colors**| Each user gets a unique color — easy to follow chat     |
-| 👥 **Member Presence**| Live member count + "joined/left" toast notifications    |
-| ⌨️ **Enter-to-Send**  | Enter sends, Shift+Enter for newline                    |
-| 😊 **Emoji Picker**   | Quick emoji selection in messages                       |
-| 🌙 **Dark Mode**      | Toggle theme — light ↔ dark                             |
-| 📜 **Smooth Scroll**  | Fluid auto-scroll, RAF-throttled, invisible scrollbars  |
-| 🗑️ **Room Deletion**  | Creator can nuke all messages & the room in one click   |
-| 📱 **Mobile Ready**   | Responsive layout with safe-area insets                 |
-| ♿ **Accessible**     | ARIA labels, live regions, keyboard nav, reduced-motion |
+|                        |                                                         |
+| ---------------------- | ------------------------------------------------------- |
+| 🕶️ **Anonymous Auth**  | Instant guest access — no account or profile required   |
+| 🚀 **Create Room**     | One-click random room code generation — no manual entry |
+| 🔗 **Invite Link**     | Copy, native share, or scan a private local QR code     |
+| 🪪 **Room Codes**      | Or pick any custom code (1–50 chars)                    |
+| ⚡ **Real-time Chat**  | Messages appear instantly via Firestore live sync       |
+| 🎨 **Nickname Colors** | Each user gets a unique color — easy to follow chat     |
+| 👥 **Member Presence** | Heartbeat-based count, typing, seen + join/left toasts  |
+| 💬 **Message Actions** | Reply, react, edit, and delete your own messages        |
+| ⌨️ **Enter-to-Send**   | Enter sends, Shift+Enter for newline                    |
+| 😊 **Emoji Picker**    | Quick emoji selection in messages                       |
+| 🌙 **Dark Mode**       | Toggle theme — light ↔ dark                             |
+| 📜 **Smooth Scroll**   | Fluid auto-scroll, RAF-throttled, invisible scrollbars  |
+| 🗑️ **Room Deletion**   | Creator can nuke all messages & the room in one click   |
+| 📱 **Mobile Ready**    | Responsive layout with safe-area insets                 |
+| ♿ **Accessible**      | ARIA labels, live regions, keyboard nav, reduced-motion |
 
 </div>
 
@@ -78,7 +79,7 @@ graph LR
 - **npm**
 - A **Firebase project** with:
   - Firestore Database
-  - Google Authentication enabled
+  - Anonymous Authentication enabled
 
 ### 1. Clone
 
@@ -162,7 +163,7 @@ src/
 │       └── validation.ts                # Nickname & room code rules
 │
 ├── firebase/
-│   ├── auth.ts                   # Google sign-in
+│   ├── auth.ts                   # Anonymous guest sign-in
 │   ├── config.ts                 # Firebase init
 │   └── firestore.ts
 │
@@ -175,8 +176,8 @@ src/
 │   ├── config/env.ts             # VITE_* env bindings
 │   ├── lib/cn.ts                 # clsx + tailwind-merge
 │   ├── lib/userColor.ts          # Per-user color derivation
-│   └── ui/                       # Button, Card, ConfirmModal, Container, 
-│                                  # EmojiPicker, Header, Input, MemberToast, 
+│   └── ui/                       # Button, Card, ConfirmModal, Container,
+│                                  # EmojiPicker, Header, Input, MemberToast,
 │                                  # PageTransition, Skeleton
 │
 └── styles/global.css             # Tailwind imports + utilities
@@ -191,14 +192,14 @@ src/
 ```
 App mount
   ↓
-AuthProvider → signInWithPopup(GoogleAuthProvider)
+AuthProvider → signInAnonymously()
   ↓
-onAuthStateChanged → user.uid, user.displayName available
+onAuthStateChanged → anonymous user.uid available
   ↓
 AuthGate → renders children (or loading/error)
 ```
 
-Google sign-in with `browserLocalPersistence` keeps the session alive across page refreshes.
+Anonymous auth with `browserLocalPersistence` keeps the guest session alive across page refreshes. No email, password, or public account is collected.
 
 ### Join & Create Room
 
@@ -222,16 +223,17 @@ Direct link (/room/a8F3mK):
 ```
 ChatPage loads
   ↓
-joinRoom(roomCode, uid, nickname) → creates Firestore doc
+joinRoom(roomCode, presenceId, uid, nickname) → creates a per-tab Firestore doc
   ↓
-subscribeToMembers() ← onSnapshot
+heartbeat every 30 seconds + subscribeToMembers() ← onSnapshot
   ↓
 Detect new/removed members
   ├── New member → toast: "Rupam joined"
   └── Member left → toast: "Rupam left"
   ↓
 Cleanup on unmount or tab close:
-  leaveRoom(roomCode, uid) → deletes member doc
+  leaveRoom(roomCode, presenceId) → deletes member doc
+  crashed sessions automatically disappear after the stale timeout
 ```
 
 ### Room Lifecycle
@@ -255,20 +257,27 @@ deleteRoom() → paginated batch delete messages + members → delete room doc
 ```
 /rooms/{roomCode}
 ├── roomCode: string        # Unique, 1–50 chars, no / ? #
-├── createdByUid: string    # Google UID
+├── createdByUid: string    # Anonymous Firebase UID
 ├── createdAt: Timestamp
 └── schemaVersion: number
 
 /rooms/{roomCode}/messages/{autoId}
 ├── clientMessageId: string  # UUID (dedup)
 ├── createdAt: Timestamp
+├── editedAt?: Timestamp
+├── reactions: map          # uid → emoji
+├── replyTo: map | null     # message preview
 ├── senderNickname: string
 ├── senderUid: string
 └── text: string             # 1–500 chars
 
-/rooms/{roomCode}/members/{userId}
+/rooms/{roomCode}/members/{presenceId}
+├── uid: string
 ├── nickname: string
-└── joinedAt: Timestamp
+├── joinedAt: Timestamp
+├── lastSeenAt: Timestamp
+├── lastReadAt: Timestamp
+└── isTyping: boolean
 ```
 
 ### Scroll System
@@ -297,18 +306,19 @@ deleteRoom() → paginated batch delete messages + members → delete room doc
 
 ## 🛡️ Security Rules
 
-| Action                  | Rule                                                           |
-| ----------------------- | -------------------------------------------------------------- |
-| Room create             | Signed-in, valid code, `createdByUid` = caller                 |
-| Room read               | Signed-in, valid code                                          |
-| Room delete             | Only `createdByUid`                                            |
-| Room listing            | ❌ Denied                                                      |
-| Message create          | Signed-in, room exists, `senderUid` = caller, validated fields |
-| Message read/list       | Signed-in, limit ≤ 100                                         |
-| Message delete          | Only room creator (via `get()` on parent room)                 |
-| Member create           | Signed-in, `userId` = caller, valid nickname                   |
-| Member read/list        | Signed-in, valid code                                          |
-| Member delete           | Signed-in, `userId` = caller                                   |
+| Action               | Rule                                                           |
+| -------------------- | -------------------------------------------------------------- |
+| Room create          | Signed-in, valid code, `createdByUid` = caller                 |
+| Room read            | Signed-in, valid code                                          |
+| Room delete          | Only `createdByUid`                                            |
+| Room listing         | ❌ Denied                                                      |
+| Message create       | Signed-in, room exists, `senderUid` = caller, validated fields |
+| Message read/list    | Signed-in, limit ≤ 100                                         |
+| Message update       | Sender edit or caller's own reaction key only                  |
+| Message delete       | Sender or room creator                                         |
+| Member create/update | Anonymous caller's own validated presence document             |
+| Member read/list     | Signed-in, valid code                                          |
+| Member delete        | Presence owner or room creator                                 |
 
 ---
 

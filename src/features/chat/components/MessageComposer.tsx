@@ -1,27 +1,38 @@
 import {
   memo,
   useCallback,
+  useEffect,
   useLayoutEffect,
   useRef,
   useState,
   type ChangeEvent,
   type SyntheticEvent,
 } from "react";
+import { X } from "lucide-react";
 
 import { MAX_MESSAGE_LENGTH } from "@/features/chat/useMessages";
+import type { MessageReply } from "@/features/chat/types";
 import { Button } from "@/shared/ui/Button";
 import { EmojiPicker } from "@/shared/ui/EmojiPicker";
 
 type MessageComposerProps = {
   disabled?: boolean;
   isSending?: boolean;
-  onSend: (message: string) => Promise<void>;
+  onCancelReply: () => void;
+  onSend: (message: string, replyTo?: MessageReply) => Promise<void>;
+  onTypingChange: (isTyping: boolean) => void;
+  replyTo?: MessageReply;
+  typingText?: string;
 };
 
 function MessageComposerComponent({
   disabled = false,
   isSending = false,
+  onCancelReply,
   onSend,
+  onTypingChange,
+  replyTo,
+  typingText,
 }: MessageComposerProps) {
   const [message, setMessage] = useState("");
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
@@ -40,6 +51,28 @@ function MessageComposerComponent({
     textarea.style.height = "0px";
     textarea.style.height = `${Math.min(textarea.scrollHeight, 144).toString()}px`;
   }, [message]);
+
+  useEffect(() => {
+    if (disabled || !trimmedMessage) {
+      onTypingChange(false);
+      return;
+    }
+
+    onTypingChange(true);
+    const idleTimeoutId = window.setTimeout(() => {
+      onTypingChange(false);
+    }, 1500);
+
+    return () => {
+      window.clearTimeout(idleTimeoutId);
+    };
+  }, [disabled, message, onTypingChange, trimmedMessage]);
+
+  useEffect(() => {
+    return () => {
+      onTypingChange(false);
+    };
+  }, [onTypingChange]);
 
   const handleEmojiSelect = useCallback(
     (emoji: string) => {
@@ -74,8 +107,10 @@ function MessageComposerComponent({
       return;
     }
 
-    await onSend(trimmedMessage);
+    await onSend(trimmedMessage, replyTo);
     setMessage("");
+    onCancelReply();
+    onTypingChange(false);
     textareaRef.current?.focus();
   }
 
@@ -103,6 +138,37 @@ function MessageComposerComponent({
         void handleSubmit(event);
       }}
     >
+      {replyTo ? (
+        <div className="flex items-start gap-3 rounded-lg border-l-2 border-cyan-500 bg-white/45 px-3 py-2 dark:bg-white/5">
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-xs font-semibold text-cyan-700 dark:text-cyan-300">
+              Replying to {replyTo.nickname}
+            </p>
+            <p className="mt-0.5 truncate text-xs text-slate-600 dark:text-slate-400">
+              {replyTo.text}
+            </p>
+          </div>
+          <Button
+            aria-label="Cancel reply"
+            className="size-7 p-0"
+            size="sm"
+            title="Cancel reply"
+            type="button"
+            variant="ghost"
+            onClick={onCancelReply}
+          >
+            <X aria-hidden="true" className="size-3.5" />
+          </Button>
+        </div>
+      ) : null}
+
+      <p
+        aria-live="polite"
+        className="h-4 truncate text-xs text-slate-500 dark:text-slate-400"
+      >
+        {typingText ?? ""}
+      </p>
+
       <div className="flex items-end gap-2">
         <label className="sr-only" htmlFor="message-composer">
           Message

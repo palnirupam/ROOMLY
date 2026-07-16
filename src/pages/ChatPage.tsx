@@ -5,6 +5,7 @@ import { ChatHeader } from "@/features/chat/components/ChatHeader";
 import { MessageComposer } from "@/features/chat/components/MessageComposer";
 import { MessageList } from "@/features/chat/components/MessageList";
 import { useMessages } from "@/features/chat/useMessages";
+import type { ChatMessage, MessageReply } from "@/features/chat/types";
 import { useAuth } from "@/features/auth/AuthContext";
 import { getDoc } from "firebase/firestore";
 
@@ -17,8 +18,13 @@ import {
   normalizeNickname,
 } from "@/features/rooms/validation";
 import {
+  createPresenceId,
+  heartbeatRoomMember,
   joinRoom,
   leaveRoom,
+  markRoomRead,
+  MEMBER_HEARTBEAT_INTERVAL_MS,
+  setMemberTyping,
   subscribeToMembers,
   type Member,
 } from "@/features/rooms/memberService";
@@ -45,7 +51,9 @@ export function ChatPage() {
   }
 
   if (!nickname) {
-    return <Navigate replace to={`/join?code=${encodeURIComponent(roomCode)}`} />;
+    return (
+      <Navigate replace to={`/join?code=${encodeURIComponent(roomCode)}`} />
+    );
   }
 
   return <ChatRoom nickname={nickname} roomCode={roomCode} />;
@@ -61,6 +69,16 @@ function ChatRoom({ nickname, roomCode }: ChatRoomProps) {
   const { user } = useAuth();
   const [isCreator, setIsCreator] = useState(false);
   const [memberCount, setMemberCount] = useState(0);
+  const [members, setMembers] = useState<Member[]>([]);
+  const [readyPresenceId, setReadyPresenceId] = useState("");
+  const [replyingTo, setReplyingTo] = useState<MessageReply | undefined>();
+  const [isTabVisible, setIsTabVisible] = useState(
+    typeof document === "undefined" || document.visibilityState === "visible",
+  );
+  const presenceId = useMemo(
+    () => (user ? createPresenceId(user.uid, roomCode) : ""),
+    [roomCode, user],
+  );
 
   type Notification = {
     id: string;
@@ -73,12 +91,16 @@ function ChatRoom({ nickname, roomCode }: ChatRoomProps) {
   const isFirstSnapshotRef = useRef(true);
   const notifIdRef = useRef(0);
   const isTabVisibleRef = useRef(true);
+  const isTypingRef = useRef(false);
 
   useEffect(() => {
     function handleVisibility() {
-      isTabVisibleRef.current = document.visibilityState === "visible";
+      const isVisible = document.visibilityState === "visible";
+      isTabVisibleRef.current = isVisible;
+      setIsTabVisible(isVisible);
     }
 
+    handleVisibility();
     document.addEventListener("visibilitychange", handleVisibility);
     return () => {
       document.removeEventListener("visibilitychange", handleVisibility);
@@ -87,17 +109,21 @@ function ChatRoom({ nickname, roomCode }: ChatRoomProps) {
 
   const {
     connectionStatus,
+    deleteMessage,
+    editMessage,
     error,
     isLoading,
     isSending,
     messages,
     retryConnection,
     sendMessage,
+    toggleReaction,
   } = useMessages({
     nickname,
     roomCode,
     userUid: user?.uid ?? "",
   });
+  const lastMessageId = messages.at(-1)?.id;
 
   useEffect(() => {
     if (!user) {
@@ -129,13 +155,25 @@ function ChatRoom({ nickname, roomCode }: ChatRoomProps) {
   }, [roomCode, user]);
 
   useEffect(() => {
-    if (!user) {
+    if (!user || !presenceId) {
       return;
     }
 
     let cancelled = false;
+    isFirstSnapshotRef.current = true;
+    prevMembersRef.current = new Map();
 
-    void joinRoom(roomCode, user.uid, nickname);
+    void joinRoom(roomCode, presenceId, user.uid, nickname)
+      .then(() => {
+        if (!cancelled) {
+          setReadyPresenceId(presenceId);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setMemberCount(0);
+        }
+      });
 
     const unsubscribe = subscribeToMembers(roomCode, (members) => {
       if (cancelled) {
@@ -143,6 +181,7 @@ function ChatRoom({ nickname, roomCode }: ChatRoomProps) {
       }
 
       setMemberCount(members.length);
+      setMembers(members);
 
       if (!isTabVisibleRef.current) {
         prevMembersRef.current = new Map(
@@ -195,12 +234,115 @@ function ChatRoom({ nickname, roomCode }: ChatRoomProps) {
       prevMembersRef.current = currentMembers;
     });
 
+    const heartbeatIntervalId = window.setInterval(() => {
+      void heartbeatRoomMember(roomCode, presenceId).catch(() => undefined);
+    }, MEMBER_HEARTBEAT_INTERVAL_MS);
+
     return () => {
       cancelled = true;
+      window.clearInterval(heartbeatIntervalId);
       unsubscribe();
-      void leaveRoom(roomCode, user.uid);
+      isTypingRef.current = false;
+      void leaveRoom(roomCode, presenceId).catch(() => undefined);
     };
-  }, [roomCode, user, nickname]);
+  }, [nickname, presenceId, roomCode, user]);
+
+  useEffect(() => {
+    if (
+      !presenceId ||
+      readyPresenceId !== presenceId ||
+      !isTabVisible ||
+      isLoading ||
+      !lastMessageId
+    ) {
+      return;
+    }
+
+    void markRoomRead(roomCode, presenceId).catch(() => undefined);
+  }, [
+    isLoading,
+    isTabVisible,
+    lastMessageId,
+    presenceId,
+    readyPresenceId,
+    roomCode,
+  ]);
+
+  const handleTypingChange = useCallback(
+    (isTyping: boolean) => {
+      if (
+        !presenceId ||
+        readyPresenceId !== presenceId ||
+        isTypingRef.current === isTyping
+      ) {
+        return;
+      }
+
+      isTypingRef.current = isTyping;
+      void setMemberTyping(roomCode, presenceId, isTyping).catch(
+        () => undefined,
+      );
+    },
+    [presenceId, readyPresenceId, roomCode],
+  );
+
+  const handleReplyToMessage = useCallback((message: ChatMessage) => {
+    setReplyingTo({
+      messageId: message.id,
+      nickname: message.nickname,
+      text: message.text,
+    });
+  }, []);
+
+  const handleReactToMessage = useCallback(
+    (messageId: string, emoji: string) => {
+      void toggleReaction(messageId, emoji);
+    },
+    [toggleReaction],
+  );
+
+  const typingText = useMemo(() => {
+    if (!user) {
+      return "";
+    }
+
+    const typingNicknames = [
+      ...new Set(
+        members
+          .filter((member) => member.uid !== user.uid && member.isTyping)
+          .map((member) => member.nickname),
+      ),
+    ];
+
+    if (typingNicknames.length === 0) {
+      return "";
+    }
+
+    if (typingNicknames.length === 1) {
+      return `${typingNicknames[0] ?? "Someone"} is typing...`;
+    }
+
+    return `${typingNicknames.length.toString()} people are typing...`;
+  }, [members, user]);
+
+  const seenCounts = useMemo(() => {
+    if (!user) {
+      return {};
+    }
+
+    return Object.fromEntries(
+      messages
+        .filter((message) => message.isOwn && message.status === "sent")
+        .map((message) => [
+          message.id,
+          members.filter(
+            (member) =>
+              member.uid !== user.uid &&
+              member.lastReadAtMs >= message.createdAtMs,
+          ).length,
+        ]),
+    );
+  }, [members, messages, user]);
 
   const handleDeleteRoom = useCallback(async () => {
     if (!user) {
@@ -252,11 +394,22 @@ function ChatRoom({ nickname, roomCode }: ChatRoomProps) {
               currentNickname={nickname}
               isLoading={isLoading}
               messages={messages}
+              seenCounts={seenCounts}
+              onDeleteMessage={deleteMessage}
+              onEditMessage={editMessage}
+              onReactToMessage={handleReactToMessage}
+              onReplyToMessage={handleReplyToMessage}
             />
             <MessageComposer
               disabled={connectionStatus === "offline" || isSending}
               isSending={isSending}
+              typingText={typingText}
+              {...(replyingTo ? { replyTo: replyingTo } : {})}
+              onCancelReply={() => {
+                setReplyingTo(undefined);
+              }}
               onSend={sendMessage}
+              onTypingChange={handleTypingChange}
             />
           </Card>
         </Container>
